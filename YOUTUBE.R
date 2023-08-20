@@ -8,20 +8,19 @@
 
 install.packages("googledrive")
 install.packages("writexl")
-library(googledrive)
+
 library(ggplot2)
 library(dplyr)
-library(openxlsx)
 library(readr)
-googledrive::drive_auth()
 
 
-ruta <- "C:\\Users\\Jonás\\Desktop\\R\\PROYECTO SI\\archive\\Global YouTube Statistics.csv"
-data <- read.csv(ruta, header = TRUE)
+
+url <- "https://raw.githubusercontent.com/cavilla1994/SI-YOUTUBE/main/Global%20YouTube%20Statistics.csv"
+data <- read.csv(url, header = TRUE)
 
 #Consulta de clase de la base de datos
 data.class(data)
-
+View(data)
 #Consulta de los nombres de las columnas y de que tipo es:
 
 colnames(data)
