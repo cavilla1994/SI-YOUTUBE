@@ -12,7 +12,8 @@ install.packages("writexl")
 library(ggplot2)
 library(dplyr)
 library(readr)
-
+library(corrplot)
+library(FactoMineR)
 
 
 url <- "https://raw.githubusercontent.com/cavilla1994/SI-YOUTUBE/main/Global%20YouTube%20Statistics.csv"
@@ -20,13 +21,20 @@ data <- read.csv(url, header = TRUE)
 
 #Consulta de clase de la base de datos
 data.class(data)
-View(data)
-#Consulta de los nombres de las columnas y de que tipo es:
 
+#Consulta de los nombres de las columnas y de que tipo es:
 colnames(data)
 
+#caracteristica de los datos
 tipos_de_datos <- sapply(data, class)
 tipos_de_datos
+
+
+#Veo los primeros registros y los ultimos registros
+head(data) #Primeros
+
+tail(data) #Ultimos
+
 
 #Calculos estadisticos basicos
 
@@ -49,6 +57,12 @@ media
 
 summary(data$subscribers)  #Me da los mismos valores que se calcularon previamente, pero no pierdo tiempo escribiendo !
 
+#Elimino columnas que considero que no me van a servir para un analisis
+
+columns_to_remove <- c("Urban_population", "Latitude", "Longitude", "Gross.tertiary.education.enrollment....")
+data <- data[, !(names(data) %in% columns_to_remove)]
+
+View(data)
 
 
 #Buscando valores NA, NAN
@@ -57,65 +71,72 @@ summary(data$subscribers)  #Me da los mismos valores que se calcularon previamen
 
 #Contamos cuantos valores NAN hay en cada columna
 contar_nan <- function(data) {
-  result <- colSums(sapply(data, is.nan))
+  result <- colSums(sapply(data, function(col) sum(is.na(col))))
   df_result <- data.frame(Columna = names(result), NaN_Count = result)
   return(df_result)
 }
-
 resultado_nan <- contar_nan(data)
-print(resultado_nan)
+print(resultado_nan)  #Visualizamos cuales columnas tienen mayor cantidad de valores NA
 
-#Eliminamos filas con datos NAN 
-eliminar_filas_nan <- function(data) {
-  data_sin_nan <- data[complete.cases(data), ]
-  return(data_sin_nan)
+
+
+# Creamos la funcion para eliminar filas con NA
+eliminar_filas_na_columna <- function(data, columna) {
+  data_clear <- data[complete.cases(data) | !is.na(data[, columna]), ]
+  return(data_clear)
 }
 
-
-# Obtener las filas eliminadas
-filas_elimindas <- data[!(rownames(data) %in% rownames(data_clear)), ]
-
-# Guardar las filas eliminadas en un nuevo archivo CSV
-ruta_archivo_eliminadas <- "C:/Users/Jonás/Desktop/filas_eliminadas.csv"
-write.csv(filas_elimindas, file = ruta_archivo_eliminadas, row.names = FALSE)
+# Nombre de la columna con NA que deseas filtrar
+columna_con_na <- "subscribers_for_last_30_days" #Se observa que es la que mayor NA aporta al dataset, decidimos eliminarla
+                                                 #y analizar esos valores por separado,  dado que afectaban al dataset
 
 
+# Generamos los dos dataset.
+#Data_clear -> la cual reperesenta el data set para trabajar.
+#filas_eliminadsa -> se creara un dataset extra para analizar los Na.
 
-data_clear
-
-write.csv(data_clear, "data_clear.csv")
-drive_upload("data_clear.csv", path = "data_clear")
-
-
-# Definir la ubicación y nombre del archivo de Excel en tu escritorio
-archivo_excel <- file.path("~/Desktop", "data_clear.xlsx")
-
-# Guardar el archivo en formato Excel
-write.xlsx(data_clear, archivo_excel, row.names = FALSE)
-
-print("Archivo de Excel guardado en tu escritorio en formato Excel.")
+data_clear <- eliminar_filas_na_columna(data, columna_con_na)
+filas_eliminadas <- data[!(rownames(data) %in% rownames(data_clear)), ]
 
 
+#Guardamos ambos dataset como csv
 
-cs########################################################
+write.csv(data_clear, file = "C:/Users/Jonas-PC/Documents/GitHub/SI-YOUTUBE/data_clear.csv", row.names = FALSE)
 
-#
-
-
-
+write.csv(filas_eliminadas, file = "C:/Users/Jonas-PC/Documents/GitHub/SI-YOUTUBE/filas_eliminadas.csv", row.names = FALSE)
 
 
+########################################################
+
+#Analisis otro level.
 
 
-# Instalacion de librerias
-install.packages("corrplot")
-install.packages("FactoMineR")
+#Grafico de barras: Cantidad de videos por categoria
 
-# Carga de librerias
-library(corrplot)
-library(FactoMineR)
+videos_por_categoria <- data %>%
+  group_by(category) %>%
+  summarise(num_videos = n())
+ggplot(videos_por_categoria, aes(x = reorder(category, -num_videos), y = num_videos)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Cantidad de Videos por Categoría",
+       x = "Categoría", y = "Cantidad de Videos") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+#Grafico de barras: Regiones mas populares por suscriptores
+regiones_populares <- data %>%
+  group_by(Country) %>%
+  summarise(total_subscribers = sum(subscribers)) %>%
+  arrange(desc(total_subscribers)) %>%
+  top_n(10)
+ggplot(regiones_populares, aes(x = reorder(Country, -total_subscribers), y = total_subscribers)) +
+  geom_bar(stat = "identity", fill = "green") +
+  labs(title = "Regiones más Populares por Suscriptores",
+       x = "País", y = "Total de Suscriptores") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 
 # Se seleccionan las columnas que solo tengan formato numerico (las tipo caracter no aplican)
+
 columnas_numericas <- sapply(data_clear, is.numeric)
 matriz_correlacion <- cor(data_clear[, columnas_numericas], use = "complete.obs")
 corrplot(matriz_correlacion, method = "circle")
